@@ -29,12 +29,27 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ව්‍යාජ වෛද්‍යවරුන්ගේ ලැයිස්තුවක් (Dummy Data)
     final List<Map<String, String>> doctors = [
-      {'name': 'Dr. Amal Silva', 'specialty': 'Cardiologist (හෘද රෝග)'},
-      {'name': 'Dr. Nimali Perera', 'specialty': 'Dentist (දන්ත)'},
-      {'name': 'Dr. Kamal Fernando', 'specialty': 'Pediatrician (ළමා රෝග)'},
-      {'name': 'Dr. Ruwanthi Dias', 'specialty': 'Dermatologist (චර්ම රෝග)'},
+      {
+        'name': 'Dr. Amal Silva',
+        'specialty': 'Cardiologist (හෘද රෝග)',
+        'imageUrl': 'https://randomuser.me/api/portraits/men/11.jpg'
+      },
+      {
+        'name': 'Dr. Nimali Perera',
+        'specialty': 'Dentist (දන්ත)',
+        'imageUrl': 'https://randomuser.me/api/portraits/women/44.jpg'
+      },
+      {
+        'name': 'Dr. Kamal Fernando',
+        'specialty': 'Pediatrician (ළමා රෝග)',
+        'imageUrl': 'https://randomuser.me/api/portraits/men/33.jpg'
+      },
+      {
+        'name': 'Dr. Ruwanthi Dias',
+        'specialty': 'Dermatologist (චර්ම රෝග)',
+        'imageUrl': 'https://randomuser.me/api/portraits/women/68.jpg'
+      },
     ];
 
     return Scaffold(
@@ -62,9 +77,10 @@ class HomeScreen extends StatelessWidget {
                     elevation: 2,
                     margin: const EdgeInsets.only(bottom: 12),
                     child: ListTile(
-                      leading: const CircleAvatar(
+                      leading: CircleAvatar(
+                        radius: 25,
                         backgroundColor: Colors.blueAccent,
-                        child: Icon(Icons.person, color: Colors.white),
+                        backgroundImage: NetworkImage(doctors[index]['imageUrl']!),
                       ),
                       title: Text(
                         doctors[index]['name']!,
@@ -77,13 +93,13 @@ class HomeScreen extends StatelessWidget {
                           foregroundColor: Colors.white,
                         ),
                         onPressed: () {
-                          // Book බොත්තම එබූ විට Details Screen එකට යාම
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (context) => DoctorDetailsScreen(
                                 name: doctors[index]['name']!,
                                 specialty: doctors[index]['specialty']!,
+                                imageUrl: doctors[index]['imageUrl']!,
                               ),
                             ),
                           );
@@ -108,8 +124,14 @@ class HomeScreen extends StatelessWidget {
 class DoctorDetailsScreen extends StatelessWidget {
   final String name;
   final String specialty;
+  final String imageUrl;
 
-  const DoctorDetailsScreen({super.key, required this.name, required this.specialty});
+  const DoctorDetailsScreen({
+    super.key,
+    required this.name,
+    required this.specialty,
+    required this.imageUrl,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -124,11 +146,11 @@ class DoctorDetailsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Center(
+            Center(
               child: CircleAvatar(
-                radius: 50,
+                radius: 60,
                 backgroundColor: Colors.blueAccent,
-                child: Icon(Icons.person, size: 50, color: Colors.white),
+                backgroundImage: NetworkImage(imageUrl),
               ),
             ),
             const SizedBox(height: 20),
@@ -151,34 +173,205 @@ class DoctorDetailsScreen extends StatelessWidget {
               'මෙම වෛද්‍යවරයා වසර 10කට වැඩි පළපුරුද්දක් ඇති විශේෂඥයෙකි. ඔබගේ සෞඛ්‍ය ගැටලු සඳහා කාරුණිකව සහ වගකීමෙන් යුතුව ප්‍රතිකාර කරනු ඇත.',
               style: TextStyle(fontSize: 16, height: 1.5),
             ),
-            const Spacer(), // මේකෙන් යට තියෙන බොත්තම තිරයේ පහළටම තල්ලු කරනවා
+            const Spacer(),
             SizedBox(
-              width: double.infinity, // බොත්තම තිරය පුරාවට දික් කරන්න
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue[800], // පාට නිල් කළා
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                onPressed: () {
+                  // දැන් මේ බොත්තම එබුවම අලුත් Booking Screen එකට යනවා
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => BookingScreen(doctorName: name),
+                    ),
+                  );
+                },
+                child: const Text(
+                  'Proceed to Booking', // නම වෙනස් කළා
+                  style: TextStyle(fontSize: 18, color: Colors.white),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------
+// තුන්වන පිටුව: Appointment වෙන්කරගැනීමේ පෝරමය (Booking Form Screen)
+// ---------------------------------------------------------
+class BookingScreen extends StatefulWidget {
+  final String doctorName;
+
+  const BookingScreen({super.key, required this.doctorName});
+
+  @override
+  State<BookingScreen> createState() => _BookingScreenState();
+}
+
+class _BookingScreenState extends State<BookingScreen> {
+  // ෆෝම් එකේ දත්ත තියාගන්න Controller සහ විචල්‍යයන්
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController phoneController = TextEditingController();
+  
+  DateTime? selectedDate;
+  String? selectedTime;
+  
+  // වෛද්‍යවරයා ඉන්න වෙලාවන් ලැයිස්තුව
+  final List<String> timeSlots = ['09:00 AM', '11:00 AM', '02:00 PM', '05:00 PM', '07:00 PM'];
+
+  // දින දර්ශනය (Calendar) පෙන්නන Function එක
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(), // අදට කලින් දවස් තෝරන්න බැරි වෙන්න
+      lastDate: DateTime(2027),
+    );
+    if (picked != null && picked != selectedDate) {
+      setState(() {
+        selectedDate = picked;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Book Appointment'),
+        backgroundColor: Colors.blue[800],
+        foregroundColor: Colors.white,
+      ),
+      body: SingleChildScrollView( // කීබෝඩ් එක එද්දී Scroll වෙන්න මේක දානවා
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Booking for: ${widget.doctorName}',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueAccent),
+            ),
+            const SizedBox(height: 24),
+            
+            // රෝගියාගේ නම
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Patient Name',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.person),
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // දුරකථන අංකය
+            TextField(
+              controller: phoneController,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                labelText: 'Phone Number',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.phone),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // දිනය තෝරාගැනීම
+            const Text('Select Date:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: () => _selectDate(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      selectedDate == null 
+                          ? 'Choose a date' 
+                          : '${selectedDate!.year}-${selectedDate!.month}-${selectedDate!.day}',
+                      style: TextStyle(fontSize: 16, color: selectedDate == null ? Colors.grey[600] : Colors.black),
+                    ),
+                    const Icon(Icons.calendar_today, color: Colors.blueAccent),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // වේලාව තෝරාගැනීම (Dropdown)
+            const Text('Select Time Slot:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  isExpanded: true,
+                  hint: const Text('Choose a time'),
+                  value: selectedTime,
+                  items: timeSlots.map((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
+                  onChanged: (newValue) {
+                    setState(() {
+                      selectedTime = newValue;
+                    });
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 40),
+
+            // Confirm බොත්තම
+            SizedBox(
+              width: double.infinity,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
                 onPressed: () {
-                  // Confirm බොත්තම එබූ විට සාර්ථක බව පෙන්වන පණිවිඩය (SnackBar)
+                  // සරල Validation එකක් (තොරතුරු ඔක්කොම දීලද බලන්න)
+                  if (nameController.text.isEmpty || selectedDate == null || selectedTime == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Please fill all details and select date/time')),
+                    );
+                    return;
+                  }
+
+                  // සාර්ථක පණිවිඩය පෙන්වීම
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text(
-                        'Appointment Booked Successfully!',
-                        style: TextStyle(fontSize: 16),
-                      ),
+                      content: Text('Appointment Booked Successfully!'),
                       backgroundColor: Colors.green,
-                      duration: Duration(seconds: 3),
                     ),
                   );
-                  
-                  // තත්පරයකට පස්සේ ආපහු මුල් පිටුවට යන්න (අවශ්‍ය නම්)
-                  // Future.delayed(const Duration(seconds: 1), () {
-                  //   Navigator.pop(context);
-                  // });
+
+                  // තත්පර 1කට පස්සේ මුල් පිටුවටම ආපසු යැවීම
+                  Future.delayed(const Duration(seconds: 1), () {
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  });
                 },
                 child: const Text(
-                  'Confirm Appointment',
+                  'Confirm & Book',
                   style: TextStyle(fontSize: 18, color: Colors.white),
                 ),
               ),
