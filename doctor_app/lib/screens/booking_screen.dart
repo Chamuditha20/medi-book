@@ -1,159 +1,164 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/booking_provider.dart';
 
 class BookingScreen extends StatefulWidget {
-  final String doctorName;
-
-  const BookingScreen({super.key, required this.doctorName});
+  const BookingScreen({super.key});
 
   @override
   State<BookingScreen> createState() => _BookingScreenState();
 }
 
 class _BookingScreenState extends State<BookingScreen> {
-  final TextEditingController nameController = TextEditingController();
-  final TextEditingController phoneController = TextEditingController();
-  DateTime? selectedDate;
-  String? selectedTime;
-  
-  final List<String> timeSlots = ['09:00 AM', '11:00 AM', '02:00 PM', '05:00 PM', '07:00 PM'];
+  bool _isLoading = true;
 
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime(2027),
-    );
-    if (picked != null && picked != selectedDate) {
-      setState(() {
-        selectedDate = picked;
-      });
+  @override
+  void initState() {
+    super.initState();
+    _fetchBookings();
+  }
+
+  Future<void> _fetchBookings() async {
+    await Provider.of<BookingProvider>(context, listen: false).fetchBookings();
+    if (mounted) {
+      setState(() { _isLoading = false; });
     }
+  }
+
+  // 👈 Cancel කරන්න කලින් අහන කොටුව (Confirmation Dialog)
+  void _showCancelConfirmation(BuildContext context, String bookingId) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
+            SizedBox(width: 10),
+            Text('Cancel Booking?'),
+          ],
+        ),
+        content: const Text('Are you sure you want to cancel this appointment? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(), // එපා (No) කිව්වොත් කොටුව වැහෙනවා
+            child: Text('Keep It', style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            onPressed: () async {
+              Navigator.of(ctx).pop(); // මුලින්ම කොටුව වහනවා
+              setState(() { _isLoading = true; }); // Loading පෙන්වනවා
+              
+              // Provider එක හරහා Database එකෙන් මකනවා
+              final success = await Provider.of<BookingProvider>(context, listen: false).cancelBooking(bookingId);
+              
+              setState(() { _isLoading = false; }); // Loading නවත්වනවා
+              
+              if (success && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking Cancelled Successfully!'), backgroundColor: Colors.orange));
+              }
+            },
+            child: const Text('Yes, Cancel', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : const Color(0xFF2C3E50);
+    final bookings = Provider.of<BookingProvider>(context).bookings;
+
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Book Appointment'),
-        backgroundColor: Colors.blue[800],
-        foregroundColor: Colors.white,
+        title: Text('My Bookings', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent, 
+        elevation: 0, 
+        centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Booking for: ${widget.doctorName}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueAccent),
-            ),
-            const SizedBox(height: 24),
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Patient Name',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.person),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: phoneController,
-              keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(
-                labelText: 'Phone Number',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.phone),
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text('Select Date:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            InkWell(
-              onTap: () => _selectDate(context),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      selectedDate == null 
-                          ? 'Choose a date' 
-                          : '${selectedDate!.year}-${selectedDate!.month}-${selectedDate!.day}',
-                      style: TextStyle(fontSize: 16, color: selectedDate == null ? Colors.grey[600] : Colors.black),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Colors.teal))
+          : bookings.isEmpty
+              ? Center(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.calendar_today, size: 80, color: Colors.teal),
+                        const SizedBox(height: 24),
+                        Text('No bookings yet!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
+                        const SizedBox(height: 8),
+                        Text('Your booked appointments will appear here.', style: TextStyle(fontSize: 15, color: Colors.grey[500])),
+                      ],
                     ),
-                    const Icon(Icons.calendar_today, color: Colors.blueAccent),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text('Select Time Slot:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  isExpanded: true,
-                  hint: const Text('Choose a time'),
-                  value: selectedTime,
-                  items: timeSlots.map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(20),
+                  itemCount: bookings.length,
+                  itemBuilder: (context, index) {
+                    final booking = bookings[index];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.grey[850] : Colors.white, 
+                        borderRadius: BorderRadius.circular(16), 
+                        boxShadow: [BoxShadow(color: Colors.black12.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5))]
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12), 
+                            decoration: BoxDecoration(color: Colors.teal.withOpacity(0.1), shape: BoxShape.circle), 
+                            child: const Icon(Icons.medical_services, color: Colors.teal)
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(booking.doctorName, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
+                                const SizedBox(height: 4),
+                                Text('${booking.date} | ${booking.time}', style: const TextStyle(color: Colors.teal, fontWeight: FontWeight.w600, fontSize: 13)),
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    Icon(Icons.person, size: 14, color: Colors.grey[500]),
+                                    const SizedBox(width: 4),
+                                    Text(booking.patientName, style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    Icon(Icons.phone, size: 14, color: Colors.grey[500]),
+                                    const SizedBox(width: 4),
+                                    Text(booking.phoneNumber, style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          // 👈 අලුත් Cancel බොත්තම (Delete Icon)
+                          IconButton(
+                            icon: const Icon(Icons.cancel_outlined, color: Colors.redAccent, size: 28),
+                            onPressed: () {
+                              if (booking.id != null) {
+                                _showCancelConfirmation(context, booking.id!);
+                              }
+                            },
+                          ),
+                        ],
+                      ),
                     );
-                  }).toList(),
-                  onChanged: (newValue) {
-                    setState(() {
-                      selectedTime = newValue;
-                    });
                   },
                 ),
-              ),
-            ),
-            const SizedBox(height: 40),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                onPressed: () {
-                  if (nameController.text.isEmpty || selectedDate == null || selectedTime == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Please fill all details and select date/time')),
-                    );
-                    return;
-                  }
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Appointment Booked Successfully!'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                  Future.delayed(const Duration(seconds: 1), () {
-                    Navigator.of(context).popUntil((route) => route.isFirst);
-                  });
-                },
-                child: const Text(
-                  'Confirm & Book',
-                  style: TextStyle(fontSize: 18, color: Colors.white),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
