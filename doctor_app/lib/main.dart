@@ -6,6 +6,7 @@ import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart'; // 👈 අලුතින් එකතු කළා
 import 'screens/login_screen.dart';
 import 'providers/record_provider.dart';
+import 'providers/appointment_provider.dart';
 // ... (ඔයාගේ Supabase Initialize කරන කෑල්ල එහෙම්මම තියන්න)
 
 class DoctorApp extends StatelessWidget {
@@ -56,7 +57,8 @@ void main() async {
         ChangeNotifierProvider(create: (_) => BookingProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()), 
-        ChangeNotifierProvider(create: (_) => RecordProvider()),// 👈 අලුතින් එකතු කළා
+        ChangeNotifierProvider(create: (_) => RecordProvider()),
+        ChangeNotifierProvider(create: (_) => AppointmentProvider()),// 👈 අලුතින් එකතු කළා
       ],
       child: const DoctorApp(),
     ),
